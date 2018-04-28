@@ -1,18 +1,81 @@
 package sync
 
 import (
-	"bytes"
 	"os"
 	"path"
 	"sync"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	"github.com/juju/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/siddontang/go-mysql/mysql"
 	"github.com/siddontang/go/ioutil2"
+	"fmt"
+	"io/ioutil"
+	"strings"
+	"strconv"
 )
+
+type PositionHoler interface {
+	Load() (*mysql.Position, error)
+	Save(pos *mysql.Position) error
+}
+
+type FilePositionHolder struct {
+	dataDir string
+}
+
+func (h *FilePositionHolder) Save(pos *mysql.Position) error {
+	if len(h.dataDir) == 0 {
+		return nil
+	}
+
+	filePath := path.Join(h.dataDir, "master.info")
+
+	posContent := fmt.Sprintf("%s:%v", pos.Name, pos.Pos)
+
+	var err error
+	if err = ioutil2.WriteFileAtomic(filePath, []byte(posContent), 0644); err != nil {
+		log.Errorf("canal save master info to file %s err %v", filePath, err)
+	}
+	return err
+}
+
+func (h *FilePositionHolder) Load() (*mysql.Position, error) {
+	var pos mysql.Position
+
+	if err := os.MkdirAll(h.dataDir, 0755); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	filePath := path.Join(h.dataDir, "master.info")
+	f, err := os.Open(filePath)
+	if err != nil && !os.IsNotExist(errors.Cause(err)) {
+		return nil, errors.Trace(err)
+	} else if os.IsNotExist(errors.Cause(err)) {
+		return nil, nil
+	}
+	defer f.Close()
+
+	bytes, err := ioutil.ReadFile(filePath)
+	if (err != nil) {
+		return nil, err
+	}
+
+	toks := strings.Split(string(bytes), ":")
+	if len(toks) == 2 {
+		pos.Name = toks[0]
+
+		rawPos, err := strconv.Atoi(toks[1])
+
+		if err != nil {
+			return nil, err
+		}
+		pos.Pos = uint32(rawPos)
+		return &pos, errors.Trace(err)
+	}
+	return nil, errors.New("Cannot parse mysql position")
+}
 
 type masterInfo struct {
 	sync.RWMutex
@@ -20,34 +83,26 @@ type masterInfo struct {
 	Name string `toml:"bin_name"`
 	Pos  uint32 `toml:"bin_pos"`
 
-	filePath     string
 	lastSaveTime time.Time
+
+	holder PositionHoler
 }
 
-func loadMasterInfo(dataDir string) (*masterInfo, error) {
-	var m masterInfo
-
-	if len(dataDir) == 0 {
-		return &m, nil
-	}
-
-	m.filePath = path.Join(dataDir, "master.info")
+func (m *masterInfo) loadPos() error {
 	m.lastSaveTime = time.Now()
 
-	if err := os.MkdirAll(dataDir, 0755); err != nil {
-		return nil, errors.Trace(err)
+	pos, err := m.holder.Load()
+
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	f, err := os.Open(m.filePath)
-	if err != nil && !os.IsNotExist(errors.Cause(err)) {
-		return nil, errors.Trace(err)
-	} else if os.IsNotExist(errors.Cause(err)) {
-		return &m, nil
+	if pos != nil {
+		m.Name = pos.Name
+		m.Pos = pos.Pos
 	}
-	defer f.Close()
 
-	_, err = toml.DecodeReader(f, &m)
-	return &m, errors.Trace(err)
+	return nil
 }
 
 func (m *masterInfo) Save(pos mysql.Position) error {
@@ -59,25 +114,13 @@ func (m *masterInfo) Save(pos mysql.Position) error {
 	m.Name = pos.Name
 	m.Pos = pos.Pos
 
-	if len(m.filePath) == 0 {
-		return nil
-	}
-
 	n := time.Now()
 	if n.Sub(m.lastSaveTime) < time.Second {
 		return nil
 	}
-
 	m.lastSaveTime = n
-	var buf bytes.Buffer
-	e := toml.NewEncoder(&buf)
 
-	e.Encode(m)
-
-	var err error
-	if err = ioutil2.WriteFileAtomic(m.filePath, buf.Bytes(), 0644); err != nil {
-		log.Errorf("canal save master info to file %s err %v", m.filePath, err)
-	}
+	err := m.holder.Save(&pos)
 
 	return errors.Trace(err)
 }
@@ -97,3 +140,4 @@ func (m *masterInfo) Close() error {
 
 	return m.Save(pos)
 }
+

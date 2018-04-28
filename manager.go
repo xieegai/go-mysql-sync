@@ -15,7 +15,7 @@ type SyncManager struct {
 
 	canal *canal.Canal
 
-	ctx context.Context
+	ctx    context.Context
 	cancel context.CancelFunc
 
 	wg sync.WaitGroup
@@ -26,18 +26,26 @@ type SyncManager struct {
 
 	master *masterInfo
 
+	posHoler PositionHoler
+
 	syncCh chan interface{}
 }
 
-func NewSyncManager(c *SyncConfig, sink Sink) (*SyncManager, error) {
+func NewSyncManager(c *SyncConfig, holder PositionHoler, sink Sink) (*SyncManager, error) {
 	sm := new(SyncManager)
 
 	sm.c = c
 	sm.syncCh = make(chan interface{}, 4096)
 	sm.ctx, sm.cancel = context.WithCancel(context.Background())
 
+	sm.posHoler = holder
+	sm.sink = sink
+
 	var err error
-	if sm.master, err = loadMasterInfo(c.DataDir); err != nil {
+	if err = sm.newMaster(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err = sm.prepareMaster(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err = sm.newCanal(); err != nil {
@@ -51,12 +59,23 @@ func NewSyncManager(c *SyncConfig, sink Sink) (*SyncManager, error) {
 		return nil, errors.Trace(err)
 	}
 
-	sm.sink = sink
-
 	sm.st = &stat{r: sm}
 	go sm.st.Run(sm.c.StatAddr)
 
 	return sm, nil
+}
+
+func (r *SyncManager) newMaster() error {
+	r.master = &masterInfo{}
+	return nil
+}
+
+func (r *SyncManager) prepareMaster() error {
+	if r.posHoler == nil {
+		r.posHoler = &FilePositionHolder{dataDir: r.c.DataDir}
+	}
+	r.master.holder = r.posHoler
+	return r.master.loadPos()
 }
 
 func (r *SyncManager) newCanal() error {
