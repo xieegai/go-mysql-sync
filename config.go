@@ -25,5 +25,8 @@ type SyncConfig struct {
 	FlushBulkTime time.Duration `toml:"flush_bulk_time"`
 
 	SkipNoPkTable bool `toml:"skip_no_pk_table"`
+
+	SubscribeTableRegex []string
+	PublishTables []string
 }
 

@@ -91,8 +91,7 @@ func (r *SyncManager) newCanal() error {
 	cfg.Dump.DiscardErr = false
 	cfg.Dump.SkipMasterData = false
 
-	//TODO
-	cfg.IncludeTableRegex = []string{"xiaomai\\.institution"}
+	cfg.IncludeTableRegex = r.c.SubscribeTableRegex
 
 	var err error
 	r.canal, err = canal.NewCanal(cfg)

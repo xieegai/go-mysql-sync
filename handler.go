@@ -39,14 +39,29 @@ func (h *SyncHandler) OnXID(nextPos mysql.Position) error {
 func (h *SyncHandler) OnRow(e *canal.RowsEvent) error {
 	var reqs []interface{}
 	var err error
+	var matchFlag bool = true
 
-	reqs, err = h.sm.sink.Parse(e)
-	if err != nil {
-		h.sm.cancel()
-		return errors.Errorf("make %s ES request err %v, close sync", e.Action, err)
+	if len(h.sm.c.PublishTables) > 0 {
+		matchFlag = false
+		for _, table := range h.sm.c.PublishTables {
+			if table == (e.Table.Schema + "." + e.Table.Name) {
+				matchFlag = true
+				break
+			}
+		}
 	}
 
-	h.sm.syncCh <- reqs
+	if matchFlag {
+		reqs, err = h.sm.sink.Parse(e)
+		if err != nil {
+			h.sm.cancel()
+			return errors.Errorf("make %s ES request err %v, close sync", e.Action, err)
+		}
+
+		if len(reqs) > 0 {
+			h.sm.syncCh <- reqs
+		}
+	}
 	return h.sm.ctx.Err()
 }
 
