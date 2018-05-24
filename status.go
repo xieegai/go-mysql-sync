@@ -11,8 +11,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type stat struct {
-	sms []*SyncManager
+type Stat struct {
+	Sms []*SyncManager
 
 	l net.Listener
 
@@ -21,10 +21,10 @@ type stat struct {
 	DeleteNum sync2.AtomicInt64
 }
 
-func (s *stat) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *Stat) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 
-	for _, sm := range s.sms {
+	for _, sm := range s.Sms {
 		rr, err := sm.canal.Execute("SHOW MASTER STATUS")
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -51,7 +51,7 @@ func (s *stat) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
-func (s *stat) Run(addr string) {
+func (s *Stat) Run(addr string) {
 	if len(addr) == 0 {
 		return
 	}
@@ -72,7 +72,7 @@ func (s *stat) Run(addr string) {
 	srv.Serve(s.l)
 }
 
-func (s *stat) Close() {
+func (s *Stat) Close() {
 	if s.l != nil {
 		s.l.Close()
 	}
