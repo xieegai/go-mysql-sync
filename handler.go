@@ -41,6 +41,10 @@ func (h *SyncHandler) OnRow(e *canal.RowsEvent) error {
 	var err error
 	var matchFlag bool = true
 
+	if h.sm.mapper != nil {
+		e = h.sm.mapper.Transform(e)
+	}
+
 	if len(h.sm.c.PublishTables) > 0 {
 		matchFlag = false
 		for _, table := range h.sm.c.PublishTables {

@@ -5,12 +5,12 @@ import (
 )
 
 type SyncConfig struct {
+	Label	   string `toml:"label"`
+
 	MyAddr     string `toml:"my_addr"`
 	MyUser     string `toml:"my_user"`
 	MyPassword string `toml:"my_pass"`
 	MyCharset  string `toml:"my_charset"`
-
-	StatAddr string `toml:"stat_addr"`
 
 	ServerID uint32 `toml:"server_id"`
 	Flavor   string `toml:"flavor"`

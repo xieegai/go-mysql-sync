@@ -12,7 +12,7 @@ import (
 )
 
 type stat struct {
-	r *SyncManager
+	sms []*SyncManager
 
 	l net.Listener
 
@@ -24,24 +24,29 @@ type stat struct {
 func (s *stat) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 
-	rr, err := s.r.canal.Execute("SHOW MASTER STATUS")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("execute sql error %v", err)))
-		return
+	for _, sm := range s.sms {
+		rr, err := sm.canal.Execute("SHOW MASTER STATUS")
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(fmt.Sprintf("execute sql error %v", err)))
+			return
+		}
+
+		binName, _ := rr.GetString(0, 0)
+		binPos, _ := rr.GetUint(0, 1)
+
+		pos := sm.canal.SyncedPosition()
+
+		buf.WriteString(fmt.Sprintf("sync info of %s\n", sm.c.Label))
+		buf.WriteString(fmt.Sprintf("-------------------------------------------------------------------------------\n"))
+		buf.WriteString(fmt.Sprintf("server_current_binlog:(%s, %d)\n", binName, binPos))
+		buf.WriteString(fmt.Sprintf("read_binlog:%s\n", pos))
+
+		buf.WriteString(fmt.Sprintf("insert_num:%d\n", s.InsertNum.Get()))
+		buf.WriteString(fmt.Sprintf("update_num:%d\n", s.UpdateNum.Get()))
+		buf.WriteString(fmt.Sprintf("delete_num:%d\n", s.DeleteNum.Get()))
+		buf.WriteString(fmt.Sprintf("-------------------------------------------------------------------------------\n\n"))
 	}
-
-	binName, _ := rr.GetString(0, 0)
-	binPos, _ := rr.GetUint(0, 1)
-
-	pos := s.r.canal.SyncedPosition()
-
-	buf.WriteString(fmt.Sprintf("server_current_binlog:(%s, %d)\n", binName, binPos))
-	buf.WriteString(fmt.Sprintf("read_binlog:%s\n", pos))
-
-	buf.WriteString(fmt.Sprintf("insert_num:%d\n", s.InsertNum.Get()))
-	buf.WriteString(fmt.Sprintf("update_num:%d\n", s.UpdateNum.Get()))
-	buf.WriteString(fmt.Sprintf("delete_num:%d\n", s.DeleteNum.Get()))
 
 	w.Write(buf.Bytes())
 }

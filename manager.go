@@ -22,23 +22,24 @@ type SyncManager struct {
 
 	sink Sink
 
-	st *stat
-
 	master *masterInfo
 
-	posHoler PositionHoler
+	posHolder PositionHoler
+
+	mapper SyncMapper
 
 	syncCh chan interface{}
 }
 
-func NewSyncManager(c *SyncConfig, holder PositionHoler, sink Sink) (*SyncManager, error) {
+func NewSyncManager(c *SyncConfig, holder PositionHoler, mapper SyncMapper, sink Sink) (*SyncManager, error) {
 	sm := new(SyncManager)
 
 	sm.c = c
 	sm.syncCh = make(chan interface{}, 4096)
 	sm.ctx, sm.cancel = context.WithCancel(context.Background())
 
-	sm.posHoler = holder
+	sm.posHolder = holder
+	sm.mapper = mapper
 	sm.sink = sink
 
 	var err error
@@ -59,9 +60,6 @@ func NewSyncManager(c *SyncConfig, holder PositionHoler, sink Sink) (*SyncManage
 		return nil, errors.Trace(err)
 	}
 
-	sm.st = &stat{r: sm}
-	go sm.st.Run(sm.c.StatAddr)
-
 	return sm, nil
 }
 
@@ -71,10 +69,10 @@ func (r *SyncManager) newMaster() error {
 }
 
 func (r *SyncManager) prepareMaster() error {
-	if r.posHoler == nil {
-		r.posHoler = &FilePositionHolder{dataDir: r.c.DataDir}
+	if r.posHolder == nil {
+		r.posHolder = &FilePositionHolder{dataDir: r.c.DataDir}
 	}
-	r.master.holder = r.posHoler
+	r.master.holder = r.posHolder
 	return r.master.loadPos()
 }
 
