@@ -185,9 +185,16 @@ func (r *SyncManager) syncLoop() {
 		if needFlush {
 			// TODO: retry some times?
 			if err := r.sink.Publish(reqs); err != nil {
-				log.Errorf("do ES bulk err %v, close sync", err)
-				r.cancel()
-				return
+				for retry := 0; retry < 3 && err != nil; retry ++ {
+					log.Errorf("Batch flush failed %v, retry %v ...", err, retry + 1)
+					time.Sleep(time.Second * (retry + 1))
+					err = r.sink.Publish(reqs)
+				}
+				if err != nil {
+					log.Errorln("Batch flush failed over 3 times, cancelled")
+					r.cancel()
+					return
+				}
 			}
 			reqs = reqs[0:0]
 		}
