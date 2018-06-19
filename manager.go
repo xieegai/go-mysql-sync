@@ -187,7 +187,7 @@ func (r *SyncManager) syncLoop() {
 			if err := r.sink.Publish(reqs); err != nil {
 				for retry := 0; retry < 3 && err != nil; retry ++ {
 					log.Errorf("Batch flush failed %v, retry %v ...", err, retry + 1)
-					time.Sleep(time.Second * (retry + 1))
+					time.Sleep(time.Second * time.Duration(retry + 1))
 					err = r.sink.Publish(reqs)
 				}
 				if err != nil {
