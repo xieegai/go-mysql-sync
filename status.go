@@ -11,8 +11,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Stat the struct to hold some stats while MySQL sync
 type Stat struct {
-	Sms []*SyncManager
+	Sms []*Manager
 
 	l net.Listener
 
@@ -51,6 +52,7 @@ func (s *Stat) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Write(buf.Bytes())
 }
 
+// Run the start function of Stat server
 func (s *Stat) Run(addr string) {
 	if len(addr) == 0 {
 		return
@@ -72,6 +74,7 @@ func (s *Stat) Run(addr string) {
 	srv.Serve(s.l)
 }
 
+// Close the close function of Stat
 func (s *Stat) Close() {
 	if s.l != nil {
 		s.l.Close()

@@ -1,20 +1,22 @@
 package sync
 
 import (
-	"github.com/siddontang/go-mysql/replication"
-	"github.com/siddontang/go-mysql/mysql"
-	"github.com/siddontang/go-mysql/canal"
 	"github.com/juju/errors"
+	"github.com/siddontang/go-mysql/canal"
+	"github.com/siddontang/go-mysql/mysql"
+	"github.com/siddontang/go-mysql/replication"
 )
 
-type SyncHandler struct {
-	sm *SyncManager
+// Handler the handler to process all MySQL binlog events
+type Handler struct {
+	sm *Manager
 }
 
-func (h *SyncHandler) OnRotate(e *replication.RotateEvent) error {
+// OnRotate the function to handle binlog position rotation
+func (h *Handler) OnRotate(e *replication.RotateEvent) error {
 	pos := mysql.Position{
-		string(e.NextLogName),
-		uint32(e.Position),
+		Name: string(e.NextLogName),
+		Pos:  uint32(e.Position),
 	}
 
 	h.sm.syncCh <- posSaver{pos, true}
@@ -22,27 +24,31 @@ func (h *SyncHandler) OnRotate(e *replication.RotateEvent) error {
 	return h.sm.ctx.Err()
 }
 
-func (h *SyncHandler) OnTableChanged(schema, table string) error {
+// OnTableChanged the function to handle table changed
+func (h *Handler) OnTableChanged(schema, table string) error {
 	return nil
 }
 
-func (h *SyncHandler) OnDDL(nextPos mysql.Position, _ *replication.QueryEvent) error {
+// OnDDL the function to handle DDL event
+func (h *Handler) OnDDL(nextPos mysql.Position, _ *replication.QueryEvent) error {
 	h.sm.syncCh <- posSaver{nextPos, true}
 	return h.sm.ctx.Err()
 }
 
-func (h *SyncHandler) OnXID(nextPos mysql.Position) error {
+// OnXID the function to handle XID event
+func (h *Handler) OnXID(nextPos mysql.Position) error {
 	h.sm.syncCh <- posSaver{nextPos, false}
 	return h.sm.ctx.Err()
 }
 
-func (h *SyncHandler) OnRow(e *canal.RowsEvent) error {
+// OnRow the function to handle row changed
+func (h *Handler) OnRow(e *canal.RowsEvent) error {
 	var reqs []interface{}
 	var err error
 	var matchFlag bool = true
 
-	if h.sm.mapper != nil {
-		e = h.sm.mapper.Transform(e)
+	if h.sm.rowMapper != nil {
+		e = h.sm.rowMapper.Transform(e)
 	}
 
 	if len(h.sm.c.PublishTables) > 0 {
@@ -69,15 +75,16 @@ func (h *SyncHandler) OnRow(e *canal.RowsEvent) error {
 	return h.sm.ctx.Err()
 }
 
-func (h *SyncHandler) OnGTID(gtid mysql.GTIDSet) error {
+// OnGTID the function to handle GTID event
+func (h *Handler) OnGTID(gtid mysql.GTIDSet) error {
 	return nil
 }
 
 // OnPosSynced Use your own way to sync position. When force is true, sync position immediately.
-func (h *SyncHandler) OnPosSynced(pos mysql.Position, force bool) error {
+func (h *Handler) OnPosSynced(pos mysql.Position, gtidSet mysql.GTIDSet, force bool) error {
 	return nil
 }
 
-func (h *SyncHandler) String() string {
+func (h *Handler) String() string {
 	return "SyncHandler"
 }

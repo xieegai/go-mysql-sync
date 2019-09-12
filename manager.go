@@ -1,17 +1,19 @@
 package sync
 
 import (
-	"github.com/siddontang/go-mysql/canal"
 	"context"
 	"sync"
-	"github.com/juju/errors"
 	"time"
+
+	"github.com/juju/errors"
+	"github.com/siddontang/go-mysql/canal"
 	"github.com/siddontang/go-mysql/mysql"
 	log "github.com/sirupsen/logrus"
 )
 
-type SyncManager struct {
-	c *SyncConfig
+// Manager the contral manager to schedule mysql sync
+type Manager struct {
+	c *Config
 
 	canal *canal.Canal
 
@@ -24,22 +26,23 @@ type SyncManager struct {
 
 	master *masterInfo
 
-	posHolder PositionHoler
+	posHolder PositionHolder
 
-	mapper SyncMapper
+	rowMapper RowMapper
 
 	syncCh chan interface{}
 }
 
-func NewSyncManager(c *SyncConfig, holder PositionHoler, mapper SyncMapper, sink Sink) (*SyncManager, error) {
-	sm := new(SyncManager)
+// NewManager the constructor of mysql sync manager
+func NewManager(c *Config, holder PositionHolder, rowMapper RowMapper, sink Sink) (*Manager, error) {
+	sm := new(Manager)
 
 	sm.c = c
 	sm.syncCh = make(chan interface{}, 4096)
 	sm.ctx, sm.cancel = context.WithCancel(context.Background())
 
 	sm.posHolder = holder
-	sm.mapper = mapper
+	sm.rowMapper = rowMapper
 	sm.sink = sink
 
 	var err error
@@ -63,12 +66,12 @@ func NewSyncManager(c *SyncConfig, holder PositionHoler, mapper SyncMapper, sink
 	return sm, nil
 }
 
-func (r *SyncManager) newMaster() error {
+func (r *Manager) newMaster() error {
 	r.master = &masterInfo{}
 	return nil
 }
 
-func (r *SyncManager) prepareMaster() error {
+func (r *Manager) prepareMaster() error {
 	if r.posHolder == nil {
 		r.posHolder = &FilePositionHolder{dataDir: r.c.DataDir}
 	}
@@ -76,7 +79,7 @@ func (r *SyncManager) prepareMaster() error {
 	return r.master.loadPos()
 }
 
-func (r *SyncManager) newCanal() error {
+func (r *Manager) newCanal() error {
 	cfg := canal.NewDefaultConfig()
 	cfg.Addr = r.c.MyAddr
 	cfg.User = r.c.MyUser
@@ -96,14 +99,14 @@ func (r *SyncManager) newCanal() error {
 	return errors.Trace(err)
 }
 
-func (r *SyncManager) prepareCanal() error {
-	r.canal.SetEventHandler(&SyncHandler{r})
+func (r *Manager) prepareCanal() error {
+	r.canal.SetEventHandler(&Handler{r})
 
 	return nil
 }
 
 // Run syncs the data from MySQL and inserts to ES.
-func (r *SyncManager) Run() error {
+func (r *Manager) Run() error {
 	r.wg.Add(1)
 	go r.syncLoop()
 
@@ -116,11 +119,13 @@ func (r *SyncManager) Run() error {
 	return nil
 }
 
-func (r *SyncManager) Ctx() context.Context {
+// Ctx get the manager context
+func (r *Manager) Ctx() context.Context {
 	return r.ctx
 }
 
-func (r *SyncManager) Close() {
+// Close close the manager
+func (r *Manager) Close() {
 	log.Infof("closing manager")
 
 	r.cancel()
@@ -137,7 +142,7 @@ type posSaver struct {
 	force bool
 }
 
-func (r *SyncManager) syncLoop() {
+func (r *Manager) syncLoop() {
 	bulkSize := r.c.BulkSize
 	if bulkSize == 0 {
 		bulkSize = 128
@@ -185,9 +190,9 @@ func (r *SyncManager) syncLoop() {
 		if needFlush {
 			// TODO: retry some times?
 			if err := r.sink.Publish(reqs); err != nil {
-				for retry := 0; retry < 3 && err != nil; retry ++ {
-					log.Errorf("Batch flush failed %v, retry %v ...", err, retry + 1)
-					time.Sleep(time.Second * time.Duration(retry + 1))
+				for retry := 0; retry < 3 && err != nil; retry++ {
+					log.Errorf("Batch flush failed %v, retry %v ...", err, retry+1)
+					time.Sleep(time.Second * time.Duration(retry+1))
 					err = r.sink.Publish(reqs)
 				}
 				if err != nil {

@@ -4,21 +4,24 @@ import (
 	"time"
 )
 
-type SyncConfig struct {
-	Label	   string `toml:"label"`
+// Config sync configuration typedef
+type Config struct {
+	// the label of MySQL configuration
+	Label string `toml:"label"`
 
-	MyAddr     string `toml:"my_addr"`
-	MyUser     string `toml:"my_user"`
+	// the MySQL address
+	MyAddr string `toml:"my_addr"`
+	// the MySQL user
+	MyUser string `toml:"my_user"`
+	// the MySQL password
 	MyPassword string `toml:"my_pass"`
-	MyCharset  string `toml:"my_charset"`
+	// the MySQL charset
+	MyCharset string `toml:"my_charset"`
 
+	// the service id to mimic a slave server
 	ServerID uint32 `toml:"server_id"`
 	Flavor   string `toml:"flavor"`
 	DataDir  string `toml:"data_dir"`
-
-	//SkipMasterData bool   `toml:"skip_master_data"`
-
-	//Sources []SourceConfig `toml:"source"`
 
 	BulkSize int `toml:"bulk_size"`
 
@@ -27,6 +30,5 @@ type SyncConfig struct {
 	SkipNoPkTable bool `toml:"skip_no_pk_table"`
 
 	SubscribeTableRegex []string
-	PublishTables []string
+	PublishTables       []string
 }
-

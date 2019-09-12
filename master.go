@@ -6,25 +6,29 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/errors"
-	log "github.com/sirupsen/logrus"
-	"github.com/siddontang/go-mysql/mysql"
-	"github.com/siddontang/go/ioutil2"
 	"fmt"
 	"io/ioutil"
-	"strings"
 	"strconv"
+	"strings"
+
+	"github.com/juju/errors"
+	"github.com/siddontang/go-mysql/mysql"
+	"github.com/siddontang/go/ioutil2"
+	log "github.com/sirupsen/logrus"
 )
 
-type PositionHoler interface {
+// PositionHolder the interface to describe MySQL binlog position holder
+type PositionHolder interface {
 	Load() (*mysql.Position, error)
 	Save(pos *mysql.Position) error
 }
 
+// FilePositionHolder the default implementation of PositionHolder based on file
 type FilePositionHolder struct {
 	dataDir string
 }
 
+// Save the function to save the binlog position
 func (h *FilePositionHolder) Save(pos *mysql.Position) error {
 	if len(h.dataDir) == 0 {
 		return nil
@@ -41,6 +45,7 @@ func (h *FilePositionHolder) Save(pos *mysql.Position) error {
 	return err
 }
 
+// Load the function to retrieve the MySQL binlog position
 func (h *FilePositionHolder) Load() (*mysql.Position, error) {
 	var pos mysql.Position
 
@@ -58,7 +63,7 @@ func (h *FilePositionHolder) Load() (*mysql.Position, error) {
 	defer f.Close()
 
 	bytes, err := ioutil.ReadFile(filePath)
-	if (err != nil) {
+	if err != nil {
 		return nil, err
 	}
 
@@ -85,7 +90,7 @@ type masterInfo struct {
 
 	lastSaveTime time.Time
 
-	holder PositionHoler
+	holder PositionHolder
 }
 
 func (m *masterInfo) loadPos() error {
@@ -130,8 +135,8 @@ func (m *masterInfo) Position() mysql.Position {
 	defer m.RUnlock()
 
 	return mysql.Position{
-		m.Name,
-		m.Pos,
+		Name: m.Name,
+		Pos:  m.Pos,
 	}
 }
 
@@ -140,4 +145,3 @@ func (m *masterInfo) Close() error {
 
 	return m.Save(pos)
 }
-
