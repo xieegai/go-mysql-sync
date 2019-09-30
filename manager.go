@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"github.com/siddontang/go/sync2"
 	"sync"
 	"time"
 
@@ -31,6 +32,11 @@ type Manager struct {
 	rowMapper RowMapper
 
 	syncCh chan interface{}
+
+
+	InsertNum sync2.AtomicInt64
+	UpdateNum sync2.AtomicInt64
+	DeleteNum sync2.AtomicInt64
 }
 
 // NewManager the constructor of mysql sync manager

@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/pprof"
 
-	"github.com/siddontang/go/sync2"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -16,10 +15,6 @@ type Stat struct {
 	Sms []*Manager
 
 	l net.Listener
-
-	InsertNum sync2.AtomicInt64
-	UpdateNum sync2.AtomicInt64
-	DeleteNum sync2.AtomicInt64
 }
 
 func (s *Stat) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -43,9 +38,9 @@ func (s *Stat) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		buf.WriteString(fmt.Sprintf("server_current_binlog:(%s, %d)\n", binName, binPos))
 		buf.WriteString(fmt.Sprintf("read_binlog:%s\n", pos))
 
-		buf.WriteString(fmt.Sprintf("insert_num:%d\n", s.InsertNum.Get()))
-		buf.WriteString(fmt.Sprintf("update_num:%d\n", s.UpdateNum.Get()))
-		buf.WriteString(fmt.Sprintf("delete_num:%d\n", s.DeleteNum.Get()))
+		buf.WriteString(fmt.Sprintf("insert_num:%d\n", sm.InsertNum.Get()))
+		buf.WriteString(fmt.Sprintf("update_num:%d\n", sm.UpdateNum.Get()))
+		buf.WriteString(fmt.Sprintf("delete_num:%d\n", sm.DeleteNum.Get()))
 		buf.WriteString(fmt.Sprintf("-------------------------------------------------------------------------------\n\n"))
 	}
 

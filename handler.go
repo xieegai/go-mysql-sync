@@ -62,6 +62,17 @@ func (h *Handler) OnRow(e *canal.RowsEvent) error {
 	}
 
 	if matchFlag {
+		switch e.Action {
+		case canal.InsertAction:
+			h.sm.InsertNum.Add(1)
+		case canal.DeleteAction:
+			h.sm.DeleteNum.Add(1)
+		case canal.UpdateAction:
+			h.sm.UpdateNum.Add(1)
+		default:
+			err = errors.Errorf("invalid rows action %s", e.Action)
+		}
+
 		reqs, err = h.sm.sink.Parse(e)
 		if err != nil {
 			h.sm.cancel()
