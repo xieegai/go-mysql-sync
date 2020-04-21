@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"fmt"
 	"github.com/juju/errors"
 	"github.com/siddontang/go-mysql/canal"
 	"github.com/siddontang/go-mysql/mysql"
@@ -64,11 +65,11 @@ func (h *Handler) OnRow(e *canal.RowsEvent) error {
 	if matchFlag {
 		switch e.Action {
 		case canal.InsertAction:
-			h.sm.InsertNum.Add(1)
+			h.makeInsertRequest(e.Action, e.Rows)
 		case canal.DeleteAction:
-			h.sm.DeleteNum.Add(1)
+			h.makeDeleteRequest(e.Action, e.Rows)
 		case canal.UpdateAction:
-			h.sm.UpdateNum.Add(1)
+			h.makeUpdateRequest(e.Rows)
 		default:
 			err = errors.Errorf("invalid rows action %s", e.Action)
 		}
@@ -84,6 +85,39 @@ func (h *Handler) OnRow(e *canal.RowsEvent) error {
 		}
 	}
 	return h.sm.ctx.Err()
+}
+
+// 记录insert的行数
+func (h *Handler) makeInsertRequest(action string, rows [][]interface{}) error {
+	return h.makeRequest(action, rows)
+}
+
+// 记录delete的行数
+func (h *Handler) makeDeleteRequest(action string, rows [][]interface{}) error {
+	return h.makeRequest(action, rows)
+}
+
+// for insert and delete
+func (h *Handler) makeRequest(action string, rows [][]interface{}) error {
+	switch action {
+	case canal.DeleteAction:
+		h.makeDeleteRequest(action, rows)
+	case canal.InsertAction:
+		h.makeInsertRequest(action, rows)
+	default:
+		fmt.Println("make request no tasks to be processed: None")
+	}
+	return nil
+}
+
+// 统计binlog更新的行数
+func (h *Handler) makeUpdateRequest(rows [][]interface{}) error {
+	if len(rows)%2 != 0 {
+		return errors.Errorf("invalid update rows event, must have 2x rows, but %d", len(rows))
+	}
+	realRows := int64(len(rows) / 2)
+	h.sm.UpdateNum.Add(realRows)
+	return nil
 }
 
 // OnGTID the function to handle GTID event
