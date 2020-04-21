@@ -33,7 +33,6 @@ type Manager struct {
 
 	syncCh chan interface{}
 
-
 	InsertNum sync2.AtomicInt64
 	UpdateNum sync2.AtomicInt64
 	DeleteNum sync2.AtomicInt64
@@ -190,6 +189,10 @@ func (r *Manager) syncLoop() {
 		case <-ticker.C:
 			needFlush = true
 		case <-r.ctx.Done():
+			if err := r.master.Save(pos); err != nil {
+				log.Errorf("save sync position %s err %v, close sync", pos, err)
+				r.cancel()
+			}
 			return
 		}
 
