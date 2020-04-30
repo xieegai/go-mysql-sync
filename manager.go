@@ -36,6 +36,9 @@ type Manager struct {
 	InsertNum sync2.AtomicInt64
 	UpdateNum sync2.AtomicInt64
 	DeleteNum sync2.AtomicInt64
+
+	// 更新消息统计,例:投递到kafka的消息统计
+	MessageCount sync2.AtomicInt64
 }
 
 // NewManager the constructor of mysql sync manager
@@ -137,7 +140,7 @@ func (r *Manager) Close() {
 
 	r.canal.Close()
 
-	r.master.Close()
+	_ = r.master.Close()
 
 	r.wg.Wait()
 }
@@ -209,6 +212,10 @@ func (r *Manager) syncLoop() {
 					r.cancel()
 					return
 				}
+			}
+			// 统计消息,如果直接看消息条数和binlog的更新条数是对不上的
+			if count := len(reqs); count > 0 {
+				r.MessageCount.Add(int64(count))
 			}
 			reqs = reqs[0:0]
 		}

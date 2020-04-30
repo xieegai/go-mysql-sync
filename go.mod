@@ -1,4 +1,4 @@
-module github.com/bailaohe/go-mysql-sync
+module github.com/JiejingTech/go-mysql-sync
 
 go 1.12
 
