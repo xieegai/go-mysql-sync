@@ -99,11 +99,12 @@ func (h *Handler) makeDeleteRequest(action string, rows [][]interface{}) error {
 
 // for insert and delete
 func (h *Handler) makeRequest(action string, rows [][]interface{}) error {
+	count := len(rows)
 	switch action {
 	case canal.DeleteAction:
-		h.makeDeleteRequest(action, rows)
+		h.sm.DeleteNum.Add(int64(count))
 	case canal.InsertAction:
-		h.makeInsertRequest(action, rows)
+		h.sm.InsertNum.Add(int64(count))
 	default:
 		fmt.Println("make request no tasks to be processed: None")
 	}
