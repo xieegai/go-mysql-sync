@@ -42,7 +42,6 @@ func (s *Stat) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		buf.WriteString(fmt.Sprintf("update_num:%d\n", sm.UpdateNum.Get()))
 		buf.WriteString(fmt.Sprintf("delete_num:%d\n", sm.DeleteNum.Get()))
 		buf.WriteString(fmt.Sprintf("sync chan capacity: %d\n", len(sm.syncCh)))
-		buf.WriteString(fmt.Sprintf("消息投递条数: %d\n", sm.MessageCount.Get()))
 		buf.WriteString(fmt.Sprintf("-------------------------------------------------------------------------------\n\n"))
 	}
 

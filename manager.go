@@ -213,10 +213,10 @@ func (r *Manager) syncLoop() {
 					return
 				}
 			}
-			// 统计消息,如果直接看消息条数和binlog的更新条数是对不上的
-			if count := len(reqs); count > 0 {
-				r.MessageCount.Add(int64(count))
-			}
+			// 统计消息,这里是interface内容,如果要统计需要查看reqs中的rows才是真真的更新内容,直接统计reqs不能算出更新条数
+			//if count := len(reqs); count > 0 {
+			//	r.MessageCount.Add(int64(count))
+			//}
 			reqs = reqs[0:0]
 		}
 
